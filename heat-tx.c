@@ -49,9 +49,9 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 2
+#define T_MAX 1024
 /* nx and ny */
-#define N 1024
+#define N 12
 /* thermal conductivity */
 #define THERM_COND 0.1
 /* some constant */
@@ -404,7 +404,7 @@ dump_sim(const simulation_t *sim)
     int j;
     for (i = 0; i < sim->params->nx; ++i) {
         for (j = 0; j < sim->params->ny; ++j) {
-            printf("%lf ", sim->u_new->vals[i][j]);
+            printf("%02.2e ", sim->u_new->vals[i][j]);
         }
         printf("\n");
     }
@@ -422,12 +422,9 @@ set_initial_conds(simulation_t *sim)
 
     printf("    o setting initial conditions...");
 
-    for (i = 0; i < sim->params->nx; ++i) {
+    for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
     }
-#if 0
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
-#endif
     mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
