@@ -41,6 +41,11 @@
  * }
  */
 
+/*
+ * NOTES
+ * see also: Crank–Nicolson method
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
