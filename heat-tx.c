@@ -112,6 +112,9 @@ params_destruct(simulation_params_t **params);
 static int
 dump_mesh(const mesh_t *mesh);
 
+static double
+max_val(const mesh_t *mesh);
+
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
 sim_param_cp(const simulation_params_t *from,
@@ -375,7 +378,39 @@ run_simulation(simulation_t *sim)
         /*      from        to        */
         mesh_cp(sim->u_new, sim->u_old);
     }
+    printf("max val: %.2e\n", max_val(sim->u_new));
     return SUCCESS;
+}
+
+/* ////////////////////////////////////////////////////////////////////////// */
+static double
+max_val(const mesh_t *mesh)
+{
+    int i, j;
+    bool first = true;
+    double max = 0.0;
+
+    for (i = 1; i < mesh->nx - 1; ++i) {
+        for (j = 1; j < mesh->ny - 1; ++j) {
+            if (first) {
+                max = mesh->vals[i][j];
+                first = false;
+                continue;
+            }
+            if (max < mesh->vals[i][j]) {
+                max = mesh->vals[i][j];
+            }
+        }
+    }
+    return max;
+}
+
+/* ////////////////////////////////////////////////////////////////////////// */
+static int
+dump_image(const simulation_t *sim,
+           const char *where)
+{
+    return 0;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
@@ -404,7 +439,7 @@ dump_sim(const simulation_t *sim)
     int j;
     for (i = 0; i < sim->params->nx; ++i) {
         for (j = 0; j < sim->params->ny; ++j) {
-            printf("%02.2e ", sim->u_new->vals[i][j]);
+            printf("%.2e ", sim->u_new->vals[i][j]);
         }
         printf("\n");
     }
