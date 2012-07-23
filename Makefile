@@ -1,6 +1,6 @@
 all: heat-tx
 
-CFLAGS = -Wall -g -O0
+CFLAGS = -Wall -g -O3
 
 heat-tx: heat-tx.c
 

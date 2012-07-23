@@ -54,9 +54,9 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 1024
+#define T_MAX 4
 /* nx and ny */
-#define N 12
+#define N 8
 /* thermal conductivity */
 #define THERM_COND 0.1
 /* some constant */
@@ -67,6 +67,7 @@ enum {
     SUCCESS = 0,
     FAILURE,
     FAILURE_OOR,
+    FAILURE_IO,
     FAILURE_INVALID_ARG
 };
 
@@ -324,8 +325,10 @@ init_params(simulation_params_t *params,
     ∆t = (∆s)^2/4c
     order to guarantee stability.
     params->delta_t = ((1.0) / 2.0 * params->c) / 2.0;
-#endif
+    /* seems to be okay VVVV */
     params->delta_t = (1.0 / (double)(pow(n, 2) + (2 * n) + 1.0)) / (2.0 * c);
+#endif
+    params->delta_t = pow(params->delta_s, 2.0) / (4.0 * params->c);
 
     printf("      . nx: %d\n", params->nx);
     printf("      . ny: %d\n", params->ny);
@@ -335,6 +338,39 @@ init_params(simulation_params_t *params,
     printf("      . delta_t: %lf\n", params->delta_t);
     printf("    done\n");
 
+    return SUCCESS;
+}
+
+/* ////////////////////////////////////////////////////////////////////////// */
+static int
+dump_image(const simulation_t *sim,
+           const char *where)
+{
+    FILE *imgfp = NULL;
+    const char *header = "P2\n#\n";
+    int i, j;
+
+    if (NULL == (imgfp = fopen("test.ppm", "w+"))) {
+        fprintf(stderr, "fopen failure @ %s:%d\n", __FILE__, __LINE__);
+        return FAILURE_IO;
+    }
+    /* write image header */
+    fprintf(imgfp, "%s", header);
+    /* write columns rows */
+    fprintf(imgfp, "%d %d\n", sim->params->ny - 2, sim->params->nx - 2);
+    /* write the max mesh value */
+    fprintf(imgfp, "%d\n", (int)max_val(sim->u_new));
+    /* write the matrix */
+    for (i = 1; i < sim->u_new->nx - 1; ++i) {
+        for (j = 1; j < sim->u_new->ny - 1; ++j) {
+            fprintf(imgfp, "%d%s", (int)sim->u_new->vals[i][j],
+                    (j == sim->u_new->ny - 2) ? "" : " ");
+        }
+        fprintf(imgfp, "\n");
+    }
+
+    fflush(imgfp);
+    if (NULL != imgfp) fclose(imgfp);
     return SUCCESS;
 }
 
@@ -383,7 +419,8 @@ run_simulation(simulation_t *sim)
         /*      from        to        */
         mesh_cp(sim->u_new, sim->u_old);
     }
-    printf("max val: %.2e\n", max_val(sim->u_new));
+    printf("::: starting visualization dump...\n");
+    dump_image(sim, NULL);
     return SUCCESS;
 }
 
@@ -408,14 +445,6 @@ max_val(const mesh_t *mesh)
         }
     }
     return max;
-}
-
-/* ////////////////////////////////////////////////////////////////////////// */
-static int
-dump_image(const simulation_t *sim,
-           const char *where)
-{
-    return 0;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
@@ -462,9 +491,12 @@ set_initial_conds(simulation_t *sim)
 
     printf("    o setting initial conditions...");
 
+#if 0
     for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
     }
+#endif
+    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
     mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
@@ -505,7 +537,6 @@ main(int argc, char **argv)
         goto cleanup;
     }
     dump_sim(sim);
-    printf("\n\n");
     if (SUCCESS != (rc = run_simulation(sim))) {
         fprintf(stderr, "run_simulation failure @ %s:%d: rc = %d\n",
                 __FILE__, __LINE__, rc);
