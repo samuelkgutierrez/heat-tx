@@ -54,11 +54,11 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX (4 * 1024)
+#define T_MAX 4096
 /* nx and ny */
-#define N 256
+#define N 512
 /* thermal conductivity */
-#define THERM_COND 1.6
+#define THERM_COND 0.6
 /* some constant */
 #define K 0.1
 
@@ -343,6 +343,7 @@ init_params(simulation_params_t *params,
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
+#if 0
 static int
 dump_image(const simulation_t *sim,
            const char *where)
@@ -374,6 +375,33 @@ dump_image(const simulation_t *sim,
     if (NULL != imgfp) fclose(imgfp);
     return SUCCESS;
 }
+#else
+static int
+dump_image(const simulation_t *sim,
+           const char *where)
+{
+    FILE *imgfp = NULL;
+    const char *header = "P2\n#\n";
+    int i, j;
+
+    if (NULL == (imgfp = fopen("test.dat", "wb"))) {
+        fprintf(stderr, "fopen failure @ %s:%d\n", __FILE__, __LINE__);
+        return FAILURE_IO;
+    }
+    /* write the matrix */
+    for (i = 1; i < sim->u_new->nx - 1; ++i) {
+        for (j = 1; j < sim->u_new->ny - 1; ++j) {
+            fprintf(imgfp, "%lf%s", sim->u_new->vals[i][j],
+                    (j == sim->u_new->ny - 2) ? "" : " ");
+        }
+        fprintf(imgfp, "\n");
+    }
+
+    fflush(imgfp);
+    if (NULL != imgfp) fclose(imgfp);
+    return SUCCESS;
+}
+#endif
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
@@ -407,7 +435,8 @@ run_simulation(simulation_t *sim)
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
                     /* boundary conditions */
-                    (i <= 1 || j <= 1 || i >= sim->params->nx - 1 ||
+                    (i <= 1 || j <= 1 ||
+                     i >= sim->params->nx - 1 ||
                      j >= sim->params->ny - 1) ? 0.0 :
                     (sim->u_old->vals[i][j] +
                     (sim->params->c *
@@ -502,16 +531,16 @@ set_initial_conds(simulation_t *sim)
         sim->u_old->vals[i][1] = K;
     }
 #endif
-#if 0
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = 1000000.0;
-#endif
 #if 1
-    sim->u_old->vals[2][2] = 100000000.0;
-    sim->u_old->vals[sim->params->nx - 2][2] = 100000000.0;
-    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = 100000000.0;
-    sim->u_old->vals[sim->params->nx - 2][2] = 100000000.0;
-    mesh_cp(sim->u_old, sim->u_new);
+    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
 #endif
+#if 0
+    sim->u_old->vals[2][2] = K;
+    sim->u_old->vals[sim->params->nx - 2][2] = K;
+    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = K;
+    sim->u_old->vals[sim->params->nx - 2][2] = K;
+#endif
+    mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
 
