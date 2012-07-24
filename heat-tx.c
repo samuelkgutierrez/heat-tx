@@ -499,6 +499,8 @@ set_initial_conds(simulation_t *sim)
 #endif
     sim->u_old->vals[2][2] = 100000000.0;
     sim->u_old->vals[sim->params->nx - 2][2] = 100000000.0;
+    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = 100000000.0;
+    sim->u_old->vals[sim->params->nx - 2][2] = 100000000.0;
     mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
