@@ -54,7 +54,7 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 5000
+#define T_MAX 4096
 /* nx and ny */
 #define N 256
 /* thermal conductivity */
@@ -88,7 +88,7 @@ typedef struct simulation_params_t {
     /* time interval */
     double delta_t;
     /* max simulation time */
-    double max_t;
+    int max_t;
 } simulation_params_t;
 
 typedef struct simulation_t {
@@ -304,11 +304,11 @@ static int
 init_params(simulation_params_t *params,
             int n,
             double c,
-            double max_t)
+            int max_t)
 {
 
     if (NULL == params) return FAILURE_INVALID_ARG;
-        
+
     printf("    o initializing simulation parameters...\n");
 
     params->nx = n;
@@ -330,13 +330,14 @@ init_params(simulation_params_t *params,
 #endif
     params->delta_t = pow(params->delta_s, 2.0) / (4.0 * params->c);
 
+    printf("      . max_t: %d\n", params->max_t);
     printf("      . nx: %d\n", params->nx);
     printf("      . ny: %d\n", params->ny);
     printf("      . nx x ny: %d\n", (params->nx * params->ny));
     printf("      . c: %lf\n", params->c);
     printf("      . delta_s: %lf\n", params->delta_s);
     printf("      . delta_t: %lf\n", params->delta_t);
-    printf("    done\n");
+    printf("    o done!\n");
 
     return SUCCESS;
 }
@@ -397,8 +398,9 @@ run_simulation(simulation_t *sim)
 {
     int t, i, j;
 
+    printf("::: starting simulation...\n");
     for (t = 0; t < sim->params->max_t; ++t) {
-        printf("  starting loop %d of %d\n", t, (int)sim->params->max_t);
+        printf("      starting loop %d of %d\n", t, sim->params->max_t);
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
@@ -419,8 +421,10 @@ run_simulation(simulation_t *sim)
         /*      from        to        */
         mesh_cp(sim->u_new, sim->u_old);
     }
-    printf("::: starting visualization dump...\n");
+    printf("::: done!\n");
+    printf("::: starting visualization dump...");
     dump_image(sim, NULL);
+    printf("done!\n");
     return SUCCESS;
 }
 
@@ -520,7 +524,7 @@ main(int argc, char **argv)
     simulation_t *sim = NULL;
 
     /* print application banner */
-    printf("\n%s %s\n\n", app_name, app_ver);
+    printf("\n::: %s %s :::\n", app_name, app_ver);
 
     if (SUCCESS != (rc = params_construct(&params))) {
         fprintf(stderr, "params_construct failure @ %s:%d: rc = %d\n", __FILE__,
