@@ -400,7 +400,9 @@ run_simulation(simulation_t *sim)
 
     printf("::: starting simulation...\n");
     for (t = 0; t < sim->params->max_t; ++t) {
-        printf("      starting loop %d of %d\n", t, sim->params->max_t);
+        if (t % 100 == 0) {
+            printf("      starting loop %d of %d\n", t, sim->params->max_t);
+        }
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
