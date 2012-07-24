@@ -54,13 +54,13 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 512
+#define T_MAX 5000
 /* nx and ny */
-#define N 512
+#define N 256
 /* thermal conductivity */
-#define THERM_COND 0.1
+#define THERM_COND 1.6
 /* some constant */
-#define K 10000.0
+#define K 0.1
 
 /* return codes */
 enum {
@@ -398,6 +398,7 @@ run_simulation(simulation_t *sim)
     int t, i, j;
 
     for (t = 0; t < sim->params->max_t; ++t) {
+        printf(" . starting loop %d of %d\n", t, (int)sim->params->max_t);
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
@@ -488,13 +489,16 @@ set_initial_conds(simulation_t *sim)
 
     printf("    o setting initial conditions...");
 
-#if 1
+#if 0
     for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
     }
-#else
+#endif
+#if 0
     sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
 #endif
+    sim->u_old->vals[2][2] = 100000000.0;
+    sim->u_old->vals[sim->params->nx - 2][2] = 100000000.0;
     mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
@@ -534,13 +538,11 @@ main(int argc, char **argv)
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
-    dump_sim(sim);
     if (SUCCESS != (rc = run_simulation(sim))) {
         fprintf(stderr, "run_simulation failure @ %s:%d: rc = %d\n",
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
-    dump_sim(sim);
 
 cleanup:
     params_destruct(&params);
