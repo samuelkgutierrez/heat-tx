@@ -398,11 +398,13 @@ run_simulation(simulation_t *sim)
     int t, i, j;
 
     for (t = 0; t < sim->params->max_t; ++t) {
-        printf(" . starting loop %d of %d\n", t, (int)sim->params->max_t);
+        printf("  starting loop %d of %d\n", t, (int)sim->params->max_t);
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
-                    (i <= 1 || j <= 1 || i >= sim->params->nx - 1 || j >= sim->params->ny - 1) ? 0.0 :
+                    /* boundary conditions */
+                    (i <= 1 || j <= 1 || i >= sim->params->nx - 1 ||
+                     j >= sim->params->ny - 1) ? 0.0 :
                     (sim->u_old->vals[i][j] +
                     (sim->params->c *
                     sim->params->delta_t /
