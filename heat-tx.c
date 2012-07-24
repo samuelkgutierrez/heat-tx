@@ -54,13 +54,13 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 4
+#define T_MAX 512
 /* nx and ny */
-#define N 8
+#define N 512
 /* thermal conductivity */
 #define THERM_COND 0.1
 /* some constant */
-#define K 1.0
+#define K 10000.0
 
 /* return codes */
 enum {
@@ -401,19 +401,16 @@ run_simulation(simulation_t *sim)
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
-                    sim->u_old->vals[i][j] +
+                    (i <= 1 || j <= 1 || i >= sim->params->nx - 1 || j >= sim->params->ny - 1) ? 0.0 :
+                    (sim->u_old->vals[i][j] +
                     (sim->params->c *
                     sim->params->delta_t /
                     pow(sim->params->delta_s, 2)) *
-                    ((i + 1 == sim->params->nx) ?
-                     K : sim->u_old->vals[i + 1][j] +
-                     (i - 1 == 0) ?
-                     K : sim->u_old->vals[i - 1][j] -
+                    (sim->u_old->vals[i + 1][j] +
+                     sim->u_old->vals[i - 1][j] -
                      4.0 * sim->u_old->vals[i][j] +
-                     (j + 1 == sim->params->ny) ?
-                     K : sim->u_old->vals[i][j + 1] +
-                     (j - 1 == 0) ?
-                     K : sim->u_old->vals[i][j - 1]);
+                     sim->u_old->vals[i][j + 1] +
+                     sim->u_old->vals[i][j - 1]));
             }
         }
         /*      from        to        */
@@ -491,12 +488,13 @@ set_initial_conds(simulation_t *sim)
 
     printf("    o setting initial conditions...");
 
-#if 0
+#if 1
     for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
     }
-#endif
+#else
     sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
+#endif
     mesh_cp(sim->u_old, sim->u_new);
 
     printf("done\n");
