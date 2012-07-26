@@ -115,12 +115,6 @@ params_construct(simulation_params_t **params);
 static int
 params_destruct(simulation_params_t **params);
 
-static int
-dump_mesh(const mesh_t *mesh);
-
-static double
-max_val(const mesh_t *mesh);
-
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
 sim_param_cp(const simulation_params_t *from,
@@ -343,45 +337,11 @@ init_params(simulation_params_t *params,
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
-#if 0
 static int
 dump_image(const simulation_t *sim,
            const char *where)
 {
     FILE *imgfp = NULL;
-    const char *header = "P2\n#\n";
-    int i, j;
-
-    if (NULL == (imgfp = fopen("test.ppm", "w+"))) {
-        fprintf(stderr, "fopen failure @ %s:%d\n", __FILE__, __LINE__);
-        return FAILURE_IO;
-    }
-    /* write image header */
-    fprintf(imgfp, "%s", header);
-    /* write columns rows */
-    fprintf(imgfp, "%d %d\n", sim->params->ny - 2, sim->params->nx - 2);
-    /* write the max mesh value */
-    fprintf(imgfp, "%d\n", (int)max_val(sim->u_new));
-    /* write the matrix */
-    for (i = 1; i < sim->u_new->nx - 1; ++i) {
-        for (j = 1; j < sim->u_new->ny - 1; ++j) {
-            fprintf(imgfp, "%d%s", (int)sim->u_new->vals[i][j],
-                    (j == sim->u_new->ny - 2) ? "" : " ");
-        }
-        fprintf(imgfp, "\n");
-    }
-
-    fflush(imgfp);
-    if (NULL != imgfp) fclose(imgfp);
-    return SUCCESS;
-}
-#else
-static int
-dump_image(const simulation_t *sim,
-           const char *where)
-{
-    FILE *imgfp = NULL;
-    const char *header = "P2\n#\n";
     int i, j;
 
     if (NULL == (imgfp = fopen("test.dat", "wb"))) {
@@ -401,7 +361,6 @@ dump_image(const simulation_t *sim,
     if (NULL != imgfp) fclose(imgfp);
     return SUCCESS;
 }
-#endif
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
@@ -454,65 +413,9 @@ run_simulation(simulation_t *sim)
     }
     printf("::: done!\n");
     printf("::: starting visualization dump...");
+    fflush(stdout);
     dump_image(sim, NULL);
     printf("done!\n");
-    return SUCCESS;
-}
-
-/* ////////////////////////////////////////////////////////////////////////// */
-static double
-max_val(const mesh_t *mesh)
-{
-    int i, j;
-    bool first = true;
-    double max = 0.0;
-
-    for (i = 1; i < mesh->nx - 1; ++i) {
-        for (j = 1; j < mesh->ny - 1; ++j) {
-            if (first) {
-                max = mesh->vals[i][j];
-                first = false;
-                continue;
-            }
-            if (max < mesh->vals[i][j]) {
-                max = mesh->vals[i][j];
-            }
-        }
-    }
-    return max;
-}
-
-/* ////////////////////////////////////////////////////////////////////////// */
-static int
-dump_mesh(const mesh_t *mesh)
-{
-    int i, j;
-
-    printf("///////////////////////////////////////////////////////////////\n");
-    for (i = 0; i < mesh->nx; ++i) {
-        for (j = 0; j < mesh->ny; ++j) {
-            printf("%e ", mesh->vals[i][j]);
-        }
-        printf("\n");
-    }
-    printf("///////////////////////////////////////////////////////////////\n");
-
-    return SUCCESS;
-}
-
-/* ////////////////////////////////////////////////////////////////////////// */
-static int
-dump_sim(const simulation_t *sim)
-{
-    int i;
-    int j;
-    for (i = 0; i < sim->params->nx; ++i) {
-        for (j = 0; j < sim->params->ny; ++j) {
-            printf("%.2e ", sim->u_new->vals[i][j]);
-        }
-        printf("\n");
-    }
-
     return SUCCESS;
 }
 
@@ -526,12 +429,13 @@ set_initial_conds(simulation_t *sim)
 
     printf("    o setting initial conditions...");
 
-#if 0
+#if 1
     for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
+        sim->u_old->vals[1][i] = K;
     }
 #endif
-#if 1
+#if 0
     sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
 #endif
 #if 0
