@@ -488,6 +488,8 @@ main(int argc, char **argv)
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
+    /* all is well */
+    erc = EXIT_SUCCESS;
 
 cleanup:
     params_destruct(&params);
