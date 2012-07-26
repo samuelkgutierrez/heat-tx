@@ -43,7 +43,7 @@
 
 /*
  * NOTES
- * see also: Crank–Nicolson method
+ * see also: Crank-Nicolson method
  */
 
 #include <stdlib.h>
@@ -396,16 +396,17 @@ run_simulation(simulation_t *sim)
                     /* boundary conditions */
                     (i <= 1 || j <= 1 ||
                      i >= sim->params->nx - 1 ||
-                     j >= sim->params->ny - 1) ? 0.0 :
+                     j >= sim->params->ny - 1) ?
+                    0.0 :
                     (sim->u_old->vals[i][j] +
-                    (sim->params->c *
-                    sim->params->delta_t /
-                    pow(sim->params->delta_s, 2)) *
-                    (sim->u_old->vals[i + 1][j] +
-                     sim->u_old->vals[i - 1][j] -
-                     4.0 * sim->u_old->vals[i][j] +
-                     sim->u_old->vals[i][j + 1] +
-                     sim->u_old->vals[i][j - 1]));
+                     (sim->params->c *
+                      sim->params->delta_t /
+                      pow(sim->params->delta_s, 2)) *
+                     (sim->u_old->vals[i + 1][j] +
+                      sim->u_old->vals[i - 1][j] -
+                      4.0 * sim->u_old->vals[i][j] +
+                      sim->u_old->vals[i][j + 1] +
+                      sim->u_old->vals[i][j - 1]));
             }
         }
         /*      from        to        */
