@@ -429,6 +429,7 @@ set_initial_conds(simulation_t *sim)
     if (NULL == sim) return FAILURE_INVALID_ARG;
 
     printf("    o setting initial conditions...");
+    fflush(stdout);
 
 #if 1
     for (i = 1; i < sim->params->nx - 1; ++i) {
@@ -447,7 +448,7 @@ set_initial_conds(simulation_t *sim)
 #endif
     mesh_cp(sim->u_old, sim->u_new);
 
-    printf("done\n");
+    printf("done!\n");
 
     return SUCCESS;
 }
