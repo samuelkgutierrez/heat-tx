@@ -192,6 +192,7 @@ mesh_construct(mesh_t **new_mesh,
     return SUCCESS;
 
 error:
+    if (NULL != tmp_mesh) free(tmp_mesh);
     mesh_destruct(tmp_mesh);
     return FAILURE_OOR;
 }
@@ -369,6 +370,8 @@ mesh_cp(const mesh_t *from,
 {
     int i;
     int j;
+
+    if (NULL == from || NULL == to) return FAILURE_INVALID_ARG;
 
     for (i = 0; i < from->nx; ++i) {
         for (j = 0; j < from->ny; ++j) {
