@@ -3,3 +3,6 @@
 ################################################################################
 
 A simple heat transfer simulation in C.
+
+### Plot Data
+plot './test.dat' matrix with image
