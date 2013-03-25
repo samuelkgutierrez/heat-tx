@@ -1,4 +1,6 @@
-/*
+/**
+ * Copyright (c) 2012-2013 Samuel K. Gutierrez All rights reserved.
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -19,8 +21,6 @@
  *
  * u_t = c * (u_xx * u_yy), 0 <= x,y <= NX, t >= 0
  */
-
-/* just for fun. */
 
 /* http://thecodedecanter.wordpress.com/2010/04/30/modelling-the-2d-heat-equation-in-f-using-100-lines-of-code/ */
 /* http://www.cosy.sbg.ac.at/events/parnum05/book/horak1.pdf */
