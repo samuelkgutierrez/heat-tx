@@ -54,13 +54,13 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX (2048 * 2) + 1024
+#define T_MAX (2048 * 4) + 1024
 /* nx and ny */
 #define N 256
 /* thermal conductivity */
 #define THERM_COND 0.6
 /* some constant */
-#define K 0.1
+#define K 0.4
 
 /* return codes */
 enum {
@@ -114,6 +114,9 @@ params_construct(simulation_params_t **params);
 
 static int
 params_destruct(simulation_params_t **params);
+
+static int
+set_initial_conds(simulation_t *sim);
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
@@ -386,7 +389,7 @@ mesh_cp(const mesh_t *from,
 static int
 run_simulation(simulation_t *sim)
 {
-    int t, i, j;
+    int t, i, j, rc = FAILURE;
 
     printf("::: starting simulation...\n");
     for (t = 0; t < sim->params->max_t; ++t) {
@@ -414,6 +417,8 @@ run_simulation(simulation_t *sim)
         }
         /*      from        to        */
         mesh_cp(sim->u_new, sim->u_old);
+        /* constant heat source */
+        if (SUCCESS != (rc = set_initial_conds(sim))) return rc;
     }
     printf("::: done!\n");
     printf("::: starting visualization dump...");
@@ -428,10 +433,10 @@ static int
 set_initial_conds(simulation_t *sim)
 {
     int i;
+    static bool disp_info = true;
 
     if (NULL == sim) return FAILURE_INVALID_ARG;
-
-    printf("    o setting initial conditions...");
+    if (disp_info) printf("    o setting initial conditions...");
     fflush(stdout);
 
 #if 0
@@ -440,20 +445,26 @@ set_initial_conds(simulation_t *sim)
         sim->u_old->vals[1][i] = K;
     }
 #endif
-#if 0
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
-#endif
 #if 1
-    sim->u_old->vals[2][2]                                     = K * 1024;
-    sim->u_old->vals[sim->params->nx - 2][2]                   = K * 1024;
+    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
+    sim->u_old->vals[sim->params->nx / 4][sim->params->ny / 2] = K;
+    sim->u_old->vals[sim->params->nx / 8][sim->params->ny / 2] = K;
+    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 4] = K;
+    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 8] = K;
+#endif
+#if 0
+    sim->u_old->vals[2][2]                                     = K;
+    sim->u_old->vals[sim->params->nx - 2][2]                   = K;
 
-    sim->u_old->vals[2][sim->params->ny - 2]                   = K * 1024;
-    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = K * 1024;
+    sim->u_old->vals[2][sim->params->ny - 2]                   = K;
+    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = K;
 #endif
     mesh_cp(sim->u_old, sim->u_new);
 
-    printf("done!\n");
-
+    if (disp_info) {
+        printf("done!\n");
+        disp_info = false;
+    }
     return SUCCESS;
 }
 
