@@ -54,7 +54,7 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX (2048 * 4) + 1024
+#define T_MAX 2048
 /* nx and ny */
 #define N 256
 /* thermal conductivity */
@@ -439,18 +439,14 @@ set_initial_conds(simulation_t *sim)
     if (disp_info) printf("    o setting initial conditions...");
     fflush(stdout);
 
-#if 0
+#if 1
     for (i = 1; i < sim->params->nx - 1; ++i) {
         sim->u_old->vals[i][1] = K;
         sim->u_old->vals[1][i] = K;
     }
 #endif
-#if 1
+#if 0
     sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
-    sim->u_old->vals[sim->params->nx / 4][sim->params->ny / 2] = K;
-    sim->u_old->vals[sim->params->nx / 8][sim->params->ny / 2] = K;
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 4] = K;
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 8] = K;
 #endif
 #if 0
     sim->u_old->vals[2][2]                                     = K;
