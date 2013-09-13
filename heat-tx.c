@@ -54,9 +54,9 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 2048
+#define T_MAX 2048 * 3
 /* nx and ny */
-#define N 256
+#define N 512
 /* thermal conductivity */
 #define THERM_COND 0.6
 /* some constant */
@@ -432,7 +432,6 @@ run_simulation(simulation_t *sim)
 static int
 set_initial_conds(simulation_t *sim)
 {
-    int i;
     static bool disp_info = true;
 
     if (NULL == sim) return FAILURE_INVALID_ARG;
@@ -440,9 +439,27 @@ set_initial_conds(simulation_t *sim)
     fflush(stdout);
 
 #if 1
-    for (i = 1; i < sim->params->nx - 1; ++i) {
-        sim->u_old->vals[i][1] = K;
-        sim->u_old->vals[1][i] = K;
+    int x0 = sim->params->nx / 2;
+    int y0 = sim->params->ny / 2;
+    int x = sim->params->nx / 4, y = 0;
+    int radiusError = 1 - x;
+
+    while (x >= y) {
+        sim->u_old->vals[x + x0][y + y0] = K;
+        sim->u_old->vals[x + x0][ y + y0] = K;
+        sim->u_old->vals[y + x0][ x + y0] = K;
+        sim->u_old->vals[-x + x0][ y + y0] = K;
+        sim->u_old->vals[-y + x0][ x + y0] = K;
+        sim->u_old->vals[-x + x0][ -y + y0] = K;
+        sim->u_old->vals[-y + x0][ -x + y0] = K;
+        sim->u_old->vals[x + x0][ -y + y0] = K;
+        sim->u_old->vals[y + x0][ -x + y0] = K;
+        y++;
+        if (radiusError<0) radiusError += 2 * y + 1;
+        else {
+            --x;
+            radiusError += 2 * (y - x + 1);
+        }
     }
 #endif
 #if 0
