@@ -442,7 +442,7 @@ set_initial_conds(simulation_t *sim)
     int x0 = sim->params->nx / 2;
     int y0 = sim->params->ny / 2;
     int x = sim->params->nx / 4, y = 0;
-    int radiusError = 1 - x;
+    int radius_err = 1 - x;
 
     while (x >= y) {
         sim->u_old->vals[x + x0][y + y0] = K;
@@ -455,10 +455,10 @@ set_initial_conds(simulation_t *sim)
         sim->u_old->vals[x + x0][ -y + y0] = K;
         sim->u_old->vals[y + x0][ -x + y0] = K;
         y++;
-        if (radiusError<0) radiusError += 2 * y + 1;
+        if (radius_err < 0) radius_err += 2 * y + 1;
         else {
             --x;
-            radiusError += 2 * (y - x + 1);
+            radius_err += 2 * (y - x + 1);
         }
     }
 #endif
