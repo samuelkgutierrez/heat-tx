@@ -43,6 +43,7 @@
 
 /*
  * NOTES
+ * using explicit methods
  * see also: Crank-Nicolson method
  */
 
