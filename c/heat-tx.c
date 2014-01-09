@@ -55,7 +55,7 @@
 #include <math.h>
 
 /* max simulation time */
-#define T_MAX 2048 * 3
+#define T_MAX 1024
 /* nx and ny */
 #define N 512
 /* thermal conductivity */
@@ -99,7 +99,7 @@ typedef struct simulation_t {
 } simulation_t;
 
 static char *app_name = "heat-tx";
-static char *app_ver = "0.1";
+static char *app_ver = "0.2";
 
 /* static forward declarations */
 static int
@@ -354,35 +354,16 @@ dump_image(const simulation_t *sim,
         return FAILURE_IO;
     }
     /* write the matrix */
-    for (i = 1; i < sim->u_new->nx - 1; ++i) {
-        for (j = 1; j < sim->u_new->ny - 1; ++j) {
+    for (i = 0; i < sim->u_new->nx; ++i) {
+        for (j = 0; j < sim->u_new->ny; ++j) {
             fprintf(imgfp, "%lf%s", sim->u_new->vals[i][j],
-                    (j == sim->u_new->ny - 2) ? "" : " ");
+                    (j == sim->u_new->ny - 1) ? "" : " ");
         }
         fprintf(imgfp, "\n");
     }
 
     fflush(imgfp);
     if (NULL != imgfp) fclose(imgfp);
-    return SUCCESS;
-}
-
-/* ////////////////////////////////////////////////////////////////////////// */
-static int
-mesh_cp(const mesh_t *from,
-        mesh_t *to)
-{
-    int i;
-    int j;
-
-    if (NULL == from || NULL == to) return FAILURE_INVALID_ARG;
-
-    for (i = 0; i < from->nx; ++i) {
-        for (j = 0; j < from->ny; ++j) {
-            to->vals[i][j] = from->vals[i][j];
-        }
-    }
-
     return SUCCESS;
 }
 
@@ -395,29 +376,26 @@ run_simulation(simulation_t *sim)
     printf("::: starting simulation...\n");
     for (t = 0; t < sim->params->max_t; ++t) {
         if (t % 100 == 0) {
-            printf("      starting loop %d of %d\n", t, sim->params->max_t);
+            printf("      starting iteration %d of %d\n", t, sim->params->max_t);
         }
         for (i = 1; i < sim->params->nx - 1; ++i) {
             for (j = 1; j < sim->params->ny - 1; ++j) {
                 sim->u_new->vals[i][j] =
-                    /* boundary conditions */
-                    (i <= 1 || j <= 1 ||
-                     i >= sim->params->nx - 1 ||
-                     j >= sim->params->ny - 1) ?
-                    0.0 :
-                    (sim->u_old->vals[i][j] +
-                     (sim->params->c *
-                      sim->params->delta_t /
-                      pow(sim->params->delta_s, 2)) *
+                    sim->u_old->vals[i][j] +
+                    (sim->params->c *
+                     sim->params->delta_t /
+                     pow(sim->params->delta_s, 2)) *
                      (sim->u_old->vals[i + 1][j] +
                       sim->u_old->vals[i - 1][j] -
                       4.0 * sim->u_old->vals[i][j] +
                       sim->u_old->vals[i][j + 1] +
-                      sim->u_old->vals[i][j - 1]));
+                      sim->u_old->vals[i][j - 1]);
             }
         }
-        /*      from        to        */
-        mesh_cp(sim->u_new, sim->u_old);
+        /* swap the mesh pointers */
+        mesh_t *tmp_meshp = sim->u_new;
+        sim->u_new = sim->u_old;
+        sim->u_old = tmp_meshp;
         /* constant heat source */
         if (SUCCESS != (rc = set_initial_conds(sim))) return rc;
     }
@@ -439,22 +417,21 @@ set_initial_conds(simulation_t *sim)
     if (disp_info) printf("    o setting initial conditions...");
     fflush(stdout);
 
-#if 1
     int x0 = sim->params->nx / 2;
     int y0 = sim->params->ny / 2;
     int x = sim->params->nx / 4, y = 0;
     int radius_err = 1 - x;
 
     while (x >= y) {
-        sim->u_old->vals[x + x0][y + y0] = K;
-        sim->u_old->vals[x + x0][ y + y0] = K;
-        sim->u_old->vals[y + x0][ x + y0] = K;
-        sim->u_old->vals[-x + x0][ y + y0] = K;
-        sim->u_old->vals[-y + x0][ x + y0] = K;
-        sim->u_old->vals[-x + x0][ -y + y0] = K;
-        sim->u_old->vals[-y + x0][ -x + y0] = K;
-        sim->u_old->vals[x + x0][ -y + y0] = K;
-        sim->u_old->vals[y + x0][ -x + y0] = K;
+        sim->u_old->vals[ x + x0][ y + y0] = K;
+        sim->u_old->vals[ x + x0][ y + y0] = K * .50;
+        sim->u_old->vals[ y + x0][ x + y0] = K * .60;
+        sim->u_old->vals[-x + x0][ y + y0] = K * .70;
+        sim->u_old->vals[-y + x0][ x + y0] = K * .80;
+        sim->u_old->vals[-x + x0][-y + y0] = K * .70;
+        sim->u_old->vals[-y + x0][-x + y0] = K * .60;
+        sim->u_old->vals[ x + x0][-y + y0] = K * .50;
+        sim->u_old->vals[ y + x0][-x + y0] = K;
         y++;
         if (radius_err < 0) radius_err += 2 * y + 1;
         else {
@@ -462,19 +439,6 @@ set_initial_conds(simulation_t *sim)
             radius_err += 2 * (y - x + 1);
         }
     }
-#endif
-#if 0
-    sim->u_old->vals[sim->params->nx / 2][sim->params->ny / 2] = K;
-#endif
-#if 0
-    sim->u_old->vals[2][2]                                     = K;
-    sim->u_old->vals[sim->params->nx - 2][2]                   = K;
-
-    sim->u_old->vals[2][sim->params->ny - 2]                   = K;
-    sim->u_old->vals[sim->params->nx - 2][sim->params->ny - 2] = K;
-#endif
-    mesh_cp(sim->u_old, sim->u_new);
-
     if (disp_info) {
         printf("done!\n");
         disp_info = false;
