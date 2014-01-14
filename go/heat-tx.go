@@ -1,3 +1,45 @@
+// Copyright (c) 2014, Los Alamos National Security, LLC All rights reserved.
+//
+// This software was produced under U.S. Government contract DE-AC52-06NA25396
+// for Los Alamos National Laboratory (LANL), which is operated by Los Alamos
+// National Security, LLC for the U.S. Department of Energy. The U.S. Government
+// has rights to use, reproduce, and distribute this software.  NEITHER THE
+// GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS
+// OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If
+// software is modified to produce derivative works, such modified software
+// should be clearly marked, so as not to confuse it with the version available
+// from LANL.
+//
+// Additionally, redistribution and use in source and binary forms, with or
+// without modification, are permitted provided that the following conditions
+// are met:
+//
+// . Redistributions of source code must retain the above copyright notice, this
+//   list of conditions and the following disclaimer.
+//
+// . Redistributions in binary form must reproduce the above copyright notice,
+//   this list of conditions and the following disclaimer in the documentation
+//   and/or other materials provided with the distribution.
+//
+// . Neither the name of Los Alamos National Security, LLC, Los Alamos National
+//   Laboratory, LANL, the U.S. Government, nor the names of its contributors
+//   may be used to endorse or promote products derived from this software
+//   without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND
+// CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT
+// NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+// PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS NATIONAL
+// SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+// OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+// OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+// ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+// LA-CC 10-123
+
 // A simple 2D heat transfer simulation in Go by Samuel K. Gutierrez
 
 // To Profile:
@@ -20,22 +62,20 @@ import (
     "runtime/pprof"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-
 // Application constants
 const (
     // Application Name
     AppName string = "go-heat-tx"
     // Application version string
     AppVerStr string = "0.1"
-    // Mesh size (x and y)
-    N uint64 = 512
     // Max simulation time
     TMax uint64 = 1024
-    // Some constant
-    K float64 = 0.4
+    // Mesh size (x and y)
+    N uint64 = 512
     // Thermal conductivity
     ThermCond float64 = 0.6
+    // Some constant
+    K float64 = 0.4
 )
 
 // 2D mesh
@@ -67,7 +107,7 @@ func NewMesh(x, y uint64) *Mesh {
     for i := range cells {
         cells[i] = make([]float64, y)
     }
-    // **remember** unlike C, we can return the address of a local variable. 
+    // **remember** unlike C, we can return the address of a local variable.
     // in fact, this returns a fresh instance each time the following code is
     // evaluated - w00t.
     return &Mesh{nx: x, ny: y, cells: cells}
@@ -141,18 +181,18 @@ func (m *Mesh) SetInitConds() {
 
 // Runs the simulation
 func (s *HeatTxSim) Run() {
-    fmt.Println("o starting simulation...")
     nx := len(s.oldMesh.cells) - 1
     ny := len(s.oldMesh.cells[0]) - 1
-    ds2 := s.params.deltaS*s.params.deltaS
-    cdtods2 := s.params.c * s.params.deltaT / ds2
-    // Stash the mesh pointers
+    ds2 := s.params.deltaS * s.params.deltaS
+    cdtods2 := (s.params.c * s.params.deltaT) / ds2
+    tMax := s.params.tMax;
     newMesh := s.newMesh
     oldMesh := s.oldMesh
 
-    for t := uint64(0); t < s.params.tMax; t++ {
+    fmt.Println("o starting simulation...")
+    for t := uint64(0); t < tMax; t++ {
         if t % 100 == 0 {
-            fmt.Println(". starting iteration", t, "of", s.params.tMax)
+            fmt.Println(". starting iteration", t, "of", tMax)
         }
         for i := 1; i < nx; i++ {
             for j := 1; j < ny; j++ {
@@ -196,8 +236,12 @@ func (s *HeatTxSim) Dump() error {
     return w.Flush()
 }
 
+
 func main() {
+    var cpuprofile = flag.String("cpuprofile", "", "write CPU profile to file")
+    // Parse user input
     flag.Parse()
+    // Determine whther or not CPU profiling is on
     if *cpuprofile != "" {
         f, err := os.Create(*cpuprofile)
         if err != nil {
@@ -206,6 +250,7 @@ func main() {
         pprof.StartCPUProfile(f)
         defer pprof.StopCPUProfile()
     }
+    // Let the games begin
     fmt.Println("o", AppName, AppVerStr)
     sim := NewHeatTxSim(N, N, ThermCond, TMax)
     sim.oldMesh.SetInitConds()

@@ -1,49 +1,58 @@
 /**
- * Copyright (c) 2012-2013 Samuel K. Gutierrez All rights reserved.
+ * Copyright (c) 2014, Los Alamos National Security, LLC All rights reserved.
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This software was produced under U.S. Government contract DE-AC52-06NA25396
+ * for Los Alamos National Laboratory (LANL), which is operated by Los Alamos
+ * National Security, LLC for the U.S. Department of Energy. The U.S. Government
+ * has rights to use, reproduce, and distribute this software.  NEITHER THE
+ * GOVERNMENT NOR LOS ALAMOS NATIONAL SECURITY, LLC MAKES ANY WARRANTY, EXPRESS
+ * OR IMPLIED, OR ASSUMES ANY LIABILITY FOR THE USE OF THIS SOFTWARE.  If
+ * software is modified to produce derivative works, such modified software
+ * should be clearly marked, so as not to confuse it with the version available
+ * from LANL.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Additionally, redistribution and use in source and binary forms, with or
+ * without modification, are permitted provided that the following conditions
+ * are met:
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * . Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * . Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * . Neither the name of Los Alamos National Security, LLC, Los Alamos National
+ *   Laboratory, LANL, the U.S. Government, nor the names of its contributors
+ *   may be used to endorse or promote products derived from this software
+ *   without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY LOS ALAMOS NATIONAL SECURITY, LLC AND
+ * CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT
+ * NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL LOS ALAMOS NATIONAL
+ * SECURITY, LLC OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* author: samuel k. gutierrez */
+/* LA-CC 10-123 */
+
+/* A simple 2D heat transfer simulation in C by Samuel K. Gutierrez */
 
 /* what we are solving
  *
  * u_t = c * (u_xx * u_yy), 0 <= x,y <= NX, t >= 0
  */
 
-/* http://thecodedecanter.wordpress.com/2010/04/30/modelling-the-2d-heat-equation-in-f-using-100-lines-of-code/ */
 /* http://www.cosy.sbg.ac.at/events/parnum05/book/horak1.pdf */
 
 /*
- * double[n+2][n+2] u_old, u_new;
- * double c, delta_t, delta_s;
- * initialize u_old, u_new with initial values and boundary conditions;
- * while (still time points to compute) {
- *     for (int i = 1; i <= n; i++) {
- *         for (int j = 1; j <= n; j++) {
- *             u_new[i, j] = u_old[i, j] + c * delta_t / delta_s^2 *
- *             (u_old[i + 1, j] + u_old[i - 1, j] - 4 * u_old[i, j] +
- *             u_old[i, j + 1] + u_old[i, j - 1]);
- *         }
- *     }
- *     u_old = u_new;
- * }
- */
-
-/*
  * NOTES
- * using explicit methods
  * see also: Crank-Nicolson method
  */
 
@@ -52,16 +61,8 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <math.h>
-
-/* max simulation time */
-#define T_MAX 1024
-/* nx and ny */
-#define N 512
-/* thermal conductivity */
-#define THERM_COND 0.6
-/* some constant */
-#define K 0.4
 
 /* return codes */
 enum {
@@ -72,34 +73,42 @@ enum {
     FAILURE_INVALID_ARG
 };
 
+static char *app_name = "c-heat-tx";
+static char *app_ver = "0.2";
+
+/* max simulation time */
+#define T_MAX 1024
+/* nx and ny */
+#define N 512
+/* thermal conductivity */
+#define THERM_COND 0.6
+/* some constant */
+#define K 0.4
+
 typedef struct mesh_t {
-    int nx;
-    int ny;
-    double **vals;
+    /* mesh size in x and y */
+    uint64_t nx, ny; 
+    /* mesh cells */
+    double **cells;
 } mesh_t;
 
 /* simulation parameters */
 typedef struct simulation_params_t {
-    /* mesh size (xy) */
-    int nx;
-    int ny;
     /* thermal conductivity */
     double c;
     double delta_s;
     /* time interval */
     double delta_t;
     /* max simulation time */
-    int max_t;
+    uint64_t max_t;
 } simulation_params_t;
 
 typedef struct simulation_t {
+    /* the meshes */
+    mesh_t *u_old, *u_new;
+    /* simulation parameters */
     simulation_params_t *params;
-    mesh_t *u_old;
-    mesh_t *u_new;
 } simulation_t;
-
-static char *app_name = "heat-tx";
-static char *app_ver = "0.2";
 
 /* static forward declarations */
 static int
@@ -117,7 +126,7 @@ static int
 params_destruct(simulation_params_t **params);
 
 static int
-set_initial_conds(simulation_t *sim);
+set_initial_conds(mesh_t *sim);
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
@@ -136,13 +145,11 @@ params_construct(simulation_params_t **params)
 
     if (NULL == params) return FAILURE_INVALID_ARG;
 
-    tmp = (simulation_params_t *)calloc(1, sizeof(simulation_params_t));
-    if (NULL == tmp) {
+    if (NULL == (tmp = calloc(1, sizeof(*tmp)))) {
         fprintf(stderr, "out of resources @ %s:%d\n", __FILE__, __LINE__);
         return FAILURE_OOR;
     }
     *params = tmp;
-
     return SUCCESS;
 }
 
@@ -177,14 +184,14 @@ mesh_construct(mesh_t **new_mesh,
         /* just bail */
         return FAILURE_OOR;
     }
-    tmp_mesh->vals = (double **)calloc(x, sizeof(double *));
-    if (NULL == tmp_mesh->vals) {
+    tmp_mesh->cells = (double **)calloc(x, sizeof(double *));
+    if (NULL == tmp_mesh->cells) {
         fprintf(stderr, "out of resources @ %s:%d\n", __FILE__, __LINE__);
         goto error;
     }
     for (i = 0; i < y; ++i) {
-        tmp_mesh->vals[i] = (double *)calloc(y, sizeof(double));
-        if (NULL == tmp_mesh->vals[i]) {
+        tmp_mesh->cells[i] = (double *)calloc(y, sizeof(double));
+        if (NULL == tmp_mesh->cells[i]) {
             fprintf(stderr, "out of resources @ %s:%d\n", __FILE__, __LINE__);
             goto error;
         }
@@ -205,49 +212,39 @@ error:
 static int
 mesh_destruct(mesh_t *mesh)
 {
-    int i;
+    uint64_t i;
 
     if (NULL == mesh) return FAILURE_INVALID_ARG;
 
-    if (NULL != mesh->vals) {
+    if (NULL != mesh->cells) {
         for (i = 0; i < mesh->ny; ++i) {
-            if (NULL != mesh->vals[i]) {
-                free(mesh->vals[i]);
-                mesh->vals[i] = NULL;
+            if (NULL != mesh->cells[i]) {
+                free(mesh->cells[i]);
+                mesh->cells[i] = NULL;
             }
         }
-        free(mesh->vals);
-        mesh->vals = NULL;
+        free(mesh->cells);
+        mesh->cells = NULL;
     }
     return SUCCESS;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-gen_meshes(simulation_t *sim)
+gen_meshes(simulation_t *sim, uint64_t nx, uint64_t ny)
 {
     int rc = FAILURE;
 
-    printf("    o constructing %d x %d mesh...", sim->params->nx,
-                                                 sim->params->ny);
-
-    if (SUCCESS != (rc = mesh_construct(&sim->u_old,
-                                        sim->params->nx,
-                                        sim->params->ny))) {
+    if (SUCCESS != (rc = mesh_construct(&sim->u_old, nx, ny))) {
         fprintf(stderr, "\nmesh_construct failure @ %s:%d\n", __FILE__,
                 __LINE__);
         goto out;
     }
-    if (SUCCESS != (rc = mesh_construct(&sim->u_new,
-                                        sim->params->nx,
-                                        sim->params->ny))) {
+    if (SUCCESS != (rc = mesh_construct(&sim->u_new, nx, ny))) {
         fprintf(stderr, "\nmesh_construct failure @ %s:%d\n", __FILE__,
                 __LINE__);
         goto out;
     }
-
-    printf("done!\n");
-
 out:
     if (SUCCESS != rc) {
         mesh_destruct(sim->u_new);
@@ -264,13 +261,9 @@ new_simulation(simulation_t **new_sim,
     simulation_t *sim = NULL;
     int rc = FAILURE;
 
-    if (NULL == new_sim) return FAILURE_INVALID_ARG;
-    if (NULL == params) return FAILURE_INVALID_ARG;
+    if (!new_sim || !params) return FAILURE_INVALID_ARG;
 
-    printf("::: initializing simulation... \n");
-
-    sim = (simulation_t *)calloc(1, sizeof(*sim));
-    if (NULL == sim) {
+    if (NULL == (sim = (simulation_t *)calloc(1, sizeof(*sim)))) {
         fprintf(stderr, "out of resources @ %s:%d\n", __FILE__, __LINE__);
         return FAILURE_OOR;
     }
@@ -284,18 +277,15 @@ new_simulation(simulation_t **new_sim,
                 __LINE__, rc);
         goto out;
     }
-    if (SUCCESS != (rc = gen_meshes(sim))) {
+    if (SUCCESS != (rc = gen_meshes(sim, N, N))) {
         fprintf(stderr, "gen_meshes failure @ %s:%d: rc = %d\n", __FILE__,
                 __LINE__, rc);
         /* on failure, gen_meshes cleans up after itself */
         goto out;
     }
-
     *new_sim = sim;
-
 out:
     return rc;
-
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
@@ -305,63 +295,45 @@ init_params(simulation_params_t *params,
             double c,
             int max_t)
 {
-
     if (NULL == params) return FAILURE_INVALID_ARG;
 
-    printf("    o initializing simulation parameters...\n");
+    printf("o initializing simulation parameters...\n");
 
-    params->nx = n;
-    params->ny = n;
     params->c = c;
     params->max_t = max_t;
     params->delta_s = 1.0 / (double)(n + 1);
     /* we know from theory that we have to obey the restriction:
      * delta_t <= (delta_s)^2/2c. so just make them equal.
      */
-#if 0
-    As different choices of n lead to different values for ∆s, it is also
-    sensible to choose different values for ∆t. In our case, we will always set
-    ∆t = (∆s)^2/4c
-    order to guarantee stability.
-    params->delta_t = ((1.0) / 2.0 * params->c) / 2.0;
-    /* seems to be okay VVVV */
-    params->delta_t = (1.0 / (double)(pow(n, 2) + (2 * n) + 1.0)) / (2.0 * c);
-#endif
     params->delta_t = pow(params->delta_s, 2.0) / (4.0 * params->c);
 
-    printf("      . max_t: %d\n", params->max_t);
-    printf("      . nx: %d\n", params->nx);
-    printf("      . ny: %d\n", params->ny);
-    printf("      . nx x ny: %d\n", (params->nx * params->ny));
-    printf("      . c: %lf\n", params->c);
-    printf("      . delta_s: %lf\n", params->delta_s);
-    printf("      . delta_t: %lf\n", params->delta_t);
-    printf("    o done!\n");
+    printf(". max_t: %"PRIu64"\n", params->max_t);
+    printf(". c: %lf\n", params->c);
+    printf(". delta_s: %lf\n", params->delta_s);
+    printf(". delta_t: %lf\n\n", params->delta_t);
 
     return SUCCESS;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-dump_image(const simulation_t *sim,
-           const char *where)
+dump_image(const simulation_t *sim)
 {
     FILE *imgfp = NULL;
-    int i, j;
+    uint64_t i, j;
 
-    if (NULL == (imgfp = fopen("test.dat", "wb"))) {
+    if (NULL == (imgfp = fopen("heat-img.dat", "wb"))) {
         fprintf(stderr, "fopen failure @ %s:%d\n", __FILE__, __LINE__);
         return FAILURE_IO;
     }
     /* write the matrix */
     for (i = 0; i < sim->u_new->nx; ++i) {
         for (j = 0; j < sim->u_new->ny; ++j) {
-            fprintf(imgfp, "%lf%s", sim->u_new->vals[i][j],
+            fprintf(imgfp, "%lf%s", sim->u_new->cells[i][j],
                     (j == sim->u_new->ny - 1) ? "" : " ");
         }
         fprintf(imgfp, "\n");
     }
-
     fflush(imgfp);
     if (NULL != imgfp) fclose(imgfp);
     return SUCCESS;
@@ -371,67 +343,62 @@ dump_image(const simulation_t *sim,
 static int
 run_simulation(simulation_t *sim)
 {
-    int t, i, j, rc = FAILURE;
+    int rc = FAILURE;
+    uint64_t t, i, j;
+    uint64_t nx = sim->u_old->nx;
+    uint64_t ny = sim->u_old->ny;
+    double ds2 = sim->params->delta_s * sim->params->delta_s;
+    double cdtods2 = (sim->params->c * sim->params->delta_t) / ds2;
+    uint64_t t_max = sim->params->max_t;
+    mesh_t *new_mesh = sim->u_new;
+    mesh_t *old_mesh = sim->u_old;
 
-    printf("::: starting simulation...\n");
-    for (t = 0; t < sim->params->max_t; ++t) {
-        if (t % 100 == 0) {
-            printf("      starting iteration %d of %d\n", t, sim->params->max_t);
+    printf("o starting simulation...\n");
+    for (t = 0; t < t_max; ++t) {
+        if (0 == t % 100) {
+            printf(". starting iteration %"PRIu64" of %"PRIu64"\n", t, t_max); 
         }
-        for (i = 1; i < sim->params->nx - 1; ++i) {
-            for (j = 1; j < sim->params->ny - 1; ++j) {
-                sim->u_new->vals[i][j] =
-                    sim->u_old->vals[i][j] +
-                    (sim->params->c *
-                     sim->params->delta_t /
-                     pow(sim->params->delta_s, 2)) *
-                     (sim->u_old->vals[i + 1][j] +
-                      sim->u_old->vals[i - 1][j] -
-                      4.0 * sim->u_old->vals[i][j] +
-                      sim->u_old->vals[i][j + 1] +
-                      sim->u_old->vals[i][j - 1]);
+        for (i = 1; i < nx - 1; ++i) {
+            for (j = 1; j < ny - 1; ++j) {
+                new_mesh->cells[i][j] =
+                    old_mesh->cells[i][j] +
+                    (cdtods2 *
+                     (old_mesh->cells[i + 1][j] +
+                      old_mesh->cells[i - 1][j] -
+                      4.0 * old_mesh->cells[i][j] +
+                      old_mesh->cells[i][j + 1] +
+                      old_mesh->cells[i][j - 1]));
             }
         }
         /* swap the mesh pointers */
-        mesh_t *tmp_meshp = sim->u_new;
-        sim->u_new = sim->u_old;
-        sim->u_old = tmp_meshp;
+        mesh_t *tmp_meshp = old_mesh; old_mesh = new_mesh; new_mesh = tmp_meshp;
         /* constant heat source */
-        if (SUCCESS != (rc = set_initial_conds(sim))) return rc;
+        if (SUCCESS != (rc = set_initial_conds(old_mesh))) return rc;
     }
-    printf("::: done!\n");
-    printf("::: starting visualization dump...");
-    fflush(stdout);
-    dump_image(sim, NULL);
-    printf("done!\n");
     return SUCCESS;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-set_initial_conds(simulation_t *sim)
+set_initial_conds(mesh_t *mesh)
 {
-    static bool disp_info = true;
+    if (NULL == mesh) return FAILURE_INVALID_ARG;
 
-    if (NULL == sim) return FAILURE_INVALID_ARG;
-    if (disp_info) printf("    o setting initial conditions...");
-    fflush(stdout);
-
-    int x0 = sim->params->nx / 2;
-    int y0 = sim->params->ny / 2;
-    int x = sim->params->nx / 4, y = 0;
+    int x0 = mesh->nx / 2;
+    int y0 = mesh->ny / 2;
+    int x = mesh->nx / 4, y = 0;
     int radius_err = 1 - x;
 
     while (x >= y) {
-        sim->u_old->vals[ x + x0][ y + y0] = K;
-        sim->u_old->vals[ x + x0][ y + y0] = K * .50;
-        sim->u_old->vals[ y + x0][ x + y0] = K * .60;
-        sim->u_old->vals[-x + x0][ y + y0] = K * .70;
-        sim->u_old->vals[-y + x0][ x + y0] = K * .80;
-        sim->u_old->vals[-x + x0][-y + y0] = K * .70;
-        sim->u_old->vals[-y + x0][-x + y0] = K * .60;
-        sim->u_old->vals[ x + x0][-y + y0] = K * .50;
-        sim->u_old->vals[ y + x0][-x + y0] = K;
+        mesh->cells[ x + x0][ y + y0] = K;
+        mesh->cells[ x + x0][ y + y0] = K * .50;
+        mesh->cells[ y + x0][ x + y0] = K * .60;
+        mesh->cells[-x + x0][ y + y0] = K * .70;
+        mesh->cells[-y + x0][ x + y0] = K * .80;
+        mesh->cells[-x + x0][-y + y0] = K * .70;
+        mesh->cells[-y + x0][-x + y0] = K * .60;
+        mesh->cells[ x + x0][-y + y0] = K * .50;
+        mesh->cells[ y + x0][-x + y0] = K;
         y++;
         if (radius_err < 0) radius_err += 2 * y + 1;
         else {
@@ -439,16 +406,12 @@ set_initial_conds(simulation_t *sim)
             radius_err += 2 * (y - x + 1);
         }
     }
-    if (disp_info) {
-        printf("done!\n");
-        disp_info = false;
-    }
     return SUCCESS;
 }
 
 /* ////////////////////////////////////////////////////////////////////////// */
 int
-main(int argc, char **argv)
+main(void)
 {
     int rc = FAILURE;
     int erc = EXIT_FAILURE;
@@ -456,7 +419,7 @@ main(int argc, char **argv)
     simulation_t *sim = NULL;
 
     /* print application banner */
-    printf("\n::: %s %s :::\n", app_name, app_ver);
+    printf("o %s %s\n", app_name, app_ver);
 
     if (SUCCESS != (rc = params_construct(&params))) {
         fprintf(stderr, "params_construct failure @ %s:%d: rc = %d\n", __FILE__,
@@ -473,7 +436,7 @@ main(int argc, char **argv)
                 __LINE__, rc);
         goto cleanup;
     }
-    if (SUCCESS != (rc = set_initial_conds(sim))) {
+    if (SUCCESS != (rc = set_initial_conds(sim->u_old))) {
         fprintf(stderr, "set_initial_conds failure @ %s:%d: rc = %d\n",
                 __FILE__, __LINE__, rc);
         goto cleanup;
@@ -483,10 +446,17 @@ main(int argc, char **argv)
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
+    if (SUCCESS != dump_image(sim)) {
+        fprintf(stderr, "dump_image failure @ %s:%d: rc = %d\n",
+                __FILE__, __LINE__, rc);
+        goto cleanup;
+    }
     /* all is well */
     erc = EXIT_SUCCESS;
 
 cleanup:
-    params_destruct(&params);
+    (void)params_destruct(&params);
+    (void)mesh_destruct(sim->u_new);
+    (void)mesh_destruct(sim->u_old);
     return erc;
 }

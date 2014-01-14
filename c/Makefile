@@ -1,6 +1,6 @@
 all: heat-tx
 
-CFLAGS = -Wall -Ofast
+CFLAGS = -Wall -O3 -Wall -Wextra
 
 heat-tx: heat-tx.c
 
