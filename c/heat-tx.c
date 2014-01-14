@@ -156,7 +156,7 @@ params_construct(simulation_params_t **params)
 static int
 params_destruct(simulation_params_t *params)
 {
-    if (NULL == params) return FAILURE_INVALID_ARG;
+    if (!params) return FAILURE_INVALID_ARG;
     free(params);
     return SUCCESS;
 }
@@ -208,9 +208,8 @@ mesh_destruct(mesh_t *mesh)
 {
     uint64_t i;
 
-    if (NULL == mesh) return FAILURE_INVALID_ARG;
-
-    if (NULL != mesh->cells) {
+    if (!mesh) return FAILURE_INVALID_ARG;
+    if (mesh->cells) {
         for (i = 0; i < mesh->ny; ++i) {
             if (NULL != mesh->cells[i]) {
                 free(mesh->cells[i]);
@@ -220,6 +219,7 @@ mesh_destruct(mesh_t *mesh)
         free(mesh->cells);
         mesh->cells = NULL;
     }
+    free(mesh);
     return SUCCESS;
 }
 
@@ -249,7 +249,18 @@ out:
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-new_simulation(simulation_t **new_sim,
+simulation_destruct(simulation_t *sim)
+{
+    if (!sim) return FAILURE_INVALID_ARG;
+    (void)params_destruct(sim->params);
+    (void)mesh_destruct(sim->new_mesh);
+    (void)mesh_destruct(sim->old_mesh);
+    free(sim);
+    return SUCCESS;
+}
+/* ////////////////////////////////////////////////////////////////////////// */
+static int
+simulation_construct(simulation_t **new_sim,
                const simulation_params_t *params)
 {
     simulation_t *sim = NULL;
@@ -329,7 +340,7 @@ dump(const simulation_t *sim)
         fprintf(imgfp, "\n");
     }
     fflush(imgfp);
-    if (NULL != imgfp) fclose(imgfp);
+    fclose(imgfp);
     return SUCCESS;
 }
 
@@ -425,9 +436,9 @@ main(void)
                 __LINE__, rc);
         goto cleanup;
     }
-    if (SUCCESS != (rc = new_simulation(&sim, params))) {
-        fprintf(stderr, "new_simulation failure @ %s:%d: rc = %d\n", __FILE__,
-                __LINE__, rc);
+    if (SUCCESS != (rc = simulation_construct(&sim, params))) {
+        fprintf(stderr, "simulation_construct failure @ %s:%d: rc = %d\n",
+                __FILE__, __LINE__, rc);
         goto cleanup;
     }
     if (SUCCESS != (rc = set_initial_conds(sim->old_mesh))) {
@@ -449,8 +460,7 @@ main(void)
     erc = EXIT_SUCCESS;
 
 cleanup:
+    (void)simulation_destruct(sim);
     (void)params_destruct(params);
-    (void)mesh_destruct(sim->new_mesh);
-    (void)mesh_destruct(sim->old_mesh);
     return erc;
 }
