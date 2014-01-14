@@ -2,7 +2,7 @@
                                     heat-tx
 ###############################################################################
 
-A simple heat transfer simulation in C.
+Simple heat transfer simulations in C and Go.
 
 ### Plot Data
 plot './test.dat' matrix with image
