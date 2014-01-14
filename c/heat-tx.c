@@ -38,9 +38,9 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * LA-CC 10-123
  */
-
-/* LA-CC 10-123 */
 
 /* A simple 2D heat transfer simulation in C by Samuel K. Gutierrez */
 
@@ -105,7 +105,7 @@ typedef struct simulation_params_t {
 
 typedef struct simulation_t {
     /* the meshes */
-    mesh_t *u_old, *u_new;
+    mesh_t *old_mesh, *new_mesh;
     /* simulation parameters */
     simulation_params_t *params;
 } simulation_t;
@@ -123,7 +123,7 @@ static int
 params_construct(simulation_params_t **params);
 
 static int
-params_destruct(simulation_params_t **params);
+params_destruct(simulation_params_t *params);
 
 static int
 set_initial_conds(mesh_t *sim);
@@ -133,6 +133,7 @@ static int
 sim_param_cp(const simulation_params_t *from,
              simulation_params_t *to)
 {
+    if (!from || !to) return FAILURE_INVALID_ARG;
     (void)memcpy(to, from, sizeof(*from));
     return SUCCESS;
 }
@@ -142,9 +143,7 @@ static int
 params_construct(simulation_params_t **params)
 {
     simulation_params_t *tmp = NULL;
-
-    if (NULL == params) return FAILURE_INVALID_ARG;
-
+    if (!params) return FAILURE_INVALID_ARG;
     if (NULL == (tmp = calloc(1, sizeof(*tmp)))) {
         fprintf(stderr, "out of resources @ %s:%d\n", __FILE__, __LINE__);
         return FAILURE_OOR;
@@ -155,15 +154,10 @@ params_construct(simulation_params_t **params)
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-params_destruct(simulation_params_t **params)
+params_destruct(simulation_params_t *params)
 {
     if (NULL == params) return FAILURE_INVALID_ARG;
-
-    if (NULL != *params) {
-        free(*params);
-        *params = NULL;
-    }
-
+    free(params);
     return SUCCESS;
 }
 
@@ -235,20 +229,20 @@ gen_meshes(simulation_t *sim, uint64_t nx, uint64_t ny)
 {
     int rc = FAILURE;
 
-    if (SUCCESS != (rc = mesh_construct(&sim->u_old, nx, ny))) {
+    if (SUCCESS != (rc = mesh_construct(&sim->old_mesh, nx, ny))) {
         fprintf(stderr, "\nmesh_construct failure @ %s:%d\n", __FILE__,
                 __LINE__);
         goto out;
     }
-    if (SUCCESS != (rc = mesh_construct(&sim->u_new, nx, ny))) {
+    if (SUCCESS != (rc = mesh_construct(&sim->new_mesh, nx, ny))) {
         fprintf(stderr, "\nmesh_construct failure @ %s:%d\n", __FILE__,
                 __LINE__);
         goto out;
     }
 out:
     if (SUCCESS != rc) {
-        mesh_destruct(sim->u_new);
-        mesh_destruct(sim->u_old);
+        mesh_destruct(sim->new_mesh);
+        mesh_destruct(sim->old_mesh);
     }
     return rc;
 }
@@ -317,7 +311,7 @@ init_params(simulation_params_t *params,
 
 /* ////////////////////////////////////////////////////////////////////////// */
 static int
-dump_image(const simulation_t *sim)
+dump(const simulation_t *sim)
 {
     FILE *imgfp = NULL;
     uint64_t i, j;
@@ -327,10 +321,10 @@ dump_image(const simulation_t *sim)
         return FAILURE_IO;
     }
     /* write the matrix */
-    for (i = 0; i < sim->u_new->nx; ++i) {
-        for (j = 0; j < sim->u_new->ny; ++j) {
-            fprintf(imgfp, "%lf%s", sim->u_new->cells[i][j],
-                    (j == sim->u_new->ny - 1) ? "" : " ");
+    for (i = 0; i < sim->new_mesh->nx; ++i) {
+        for (j = 0; j < sim->new_mesh->ny; ++j) {
+            fprintf(imgfp, "%lf%s", sim->new_mesh->cells[i][j],
+                    (j == sim->new_mesh->ny - 1) ? "" : " ");
         }
         fprintf(imgfp, "\n");
     }
@@ -345,13 +339,13 @@ run_simulation(simulation_t *sim)
 {
     int rc = FAILURE;
     uint64_t t, i, j;
-    uint64_t nx = sim->u_old->nx;
-    uint64_t ny = sim->u_old->ny;
+    uint64_t nx = sim->old_mesh->nx;
+    uint64_t ny = sim->old_mesh->ny;
     double ds2 = sim->params->delta_s * sim->params->delta_s;
     double cdtods2 = (sim->params->c * sim->params->delta_t) / ds2;
     uint64_t t_max = sim->params->max_t;
-    mesh_t *new_mesh = sim->u_new;
-    mesh_t *old_mesh = sim->u_old;
+    mesh_t *new_mesh = sim->new_mesh;
+    mesh_t *old_mesh = sim->old_mesh;
 
     printf("o starting simulation...\n");
     for (t = 0; t < t_max; ++t) {
@@ -436,7 +430,7 @@ main(void)
                 __LINE__, rc);
         goto cleanup;
     }
-    if (SUCCESS != (rc = set_initial_conds(sim->u_old))) {
+    if (SUCCESS != (rc = set_initial_conds(sim->old_mesh))) {
         fprintf(stderr, "set_initial_conds failure @ %s:%d: rc = %d\n",
                 __FILE__, __LINE__, rc);
         goto cleanup;
@@ -446,8 +440,8 @@ main(void)
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
-    if (SUCCESS != dump_image(sim)) {
-        fprintf(stderr, "dump_image failure @ %s:%d: rc = %d\n",
+    if (SUCCESS != dump(sim)) {
+        fprintf(stderr, "dump failure @ %s:%d: rc = %d\n",
                 __FILE__, __LINE__, rc);
         goto cleanup;
     }
@@ -455,8 +449,8 @@ main(void)
     erc = EXIT_SUCCESS;
 
 cleanup:
-    (void)params_destruct(&params);
-    (void)mesh_destruct(sim->u_new);
-    (void)mesh_destruct(sim->u_old);
+    (void)params_destruct(params);
+    (void)mesh_destruct(sim->new_mesh);
+    (void)mesh_destruct(sim->old_mesh);
     return erc;
 }
