@@ -42,6 +42,9 @@
 
 // A simple 2D heat transfer simulation in Go by Samuel K. Gutierrez
 
+// To Build:
+// go build heat-tx.go
+
 // To Profile:
 // Build
 // ./heat-tx -cpuprofile=heat-tx.prof
